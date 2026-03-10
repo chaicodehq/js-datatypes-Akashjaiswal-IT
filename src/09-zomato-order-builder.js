@@ -34,7 +34,8 @@
  *
  * @param {Array<{ name: string, price: number, qty: number, addons?: string[] }>} cart
  * @param {string} [coupon] - Optional coupon code
- * @returns {{ items: Array<{ name: string, qty: number, basePrice: number, addonTotal: number, itemTotal: number }>, subtotal: number, deliveryFee: number, gst: number, discount: number, grandTotal: number } | null}
+ * @returns {{ items: Array<{ name: string, qty: number, basePrice: number, addonTotal: number, itemTotal: number }>, 
+ * subtotal: number, deliveryFee: number, gst: number, discount: number, grandTotal: number } | null}
  *
  * @example
  *   buildZomatoOrder([{ name: "Biryani", price: 300, qty: 1, addons: ["Raita:30"] }], "FLAT100")
@@ -46,5 +47,26 @@
  *   // grandTotal: 1000 + 0 + 50 - 150 = 900
  */
 export function buildZomatoOrder(cart, coupon) {
-  // Your code here
+  if(!Array.isArray(cart) || cart.length == 0) return null;
+  const items = cart.filter(e => e.qty > 0).map(e => {
+    const name = e.name;
+    const qty = e.qty;
+    const basePrice = e.price;
+    const addonTotal = parseFloat((e.addons || []).reduce((acc, e1) => acc + parseFloat(e1.split(':')[1]), 0).toFixed(2));
+    const itemTotal = (basePrice + parseFloat(addonTotal))*qty;
+    return {name, qty, basePrice, addonTotal, itemTotal};
+  });
+  if(items.length == 0) return null;
+  const subtotal = items.reduce((acc, e) => acc + e.itemTotal, 0);
+  let deliveryFee = 0;
+  if(subtotal < 500) deliveryFee = 30;
+  else if(subtotal < 1000) deliveryFee = 15;
+  else deliveryFee = 0;
+  const gst = parseFloat((5* subtotal/100).toFixed(2));
+  let discount = 0;
+  if(coupon?.toUpperCase() == 'FIRST50') discount = Math.min(parseFloat((subtotal/2).toFixed(2)), 150);
+  else if (coupon?.toUpperCase() == 'FLAT100') discount = 100;
+  else if (coupon?.toUpperCase() == 'FREESHIP') {discount = deliveryFee; deliveryFee = 0;}
+  const grandTotal = Math.max(subtotal + deliveryFee + gst - discount, 0);
+  return {items, subtotal, deliveryFee, gst, discount, grandTotal};
 }
